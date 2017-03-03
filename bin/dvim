@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+#
+# dvim - gvim --remote workalike
+#
+
+from __future__ import print_function
+
+import argparse
+import os
+import pydbus
+import subprocess
+import sys
+
+class DBusError(BaseException):
+	pass
+
+def get_server(silent=False):
+	bus = pydbus.SessionBus()
+	if 'org.vim.server' not in bus.dbus.ListNames():
+		if not silent:
+			print('Cannot find a vim-dbus-server', file=sys.stderr)
+		raise DBusError()
+
+	return bus.get('org.vim.server')
+
+def remote_expr(expr):
+	vim = get_server()
+	print(vim.Eval(expr))
+
+def remote_raw_ex(cmd):
+	vim = get_server()
+	print('>>> ' + cmd)
+	reply = vim.Command(cmd)
+	print('<<< ' + reply)
+
+def remote_tab(files, silent=False):
+	vim = get_server(silent)
+
+	command = 'tabnew'
+
+	for f in files:
+		if f.startswith('+'):
+			command = 'tabnew ' + f
+
+		# Convert relative to absolute filename
+		f = os.path.abspath(f)
+
+		# Cook any spaces in filenames to match ex syntax
+		f = f.replace(' ', '\\ ')
+
+		reply = vim.Command('tabnew ' + f)
+		print(reply.strip())
+
+def main():
+	parser = argparse.ArgumentParser(
+			description="DBus based `gvim --remote' workalike")
+	parser.add_argument('--remote-expr',
+			help='Evaluate <expr> in a Vim server and print result')
+	parser.add_argument('--remote-raw-ex',
+			help='Send a raw ex command to the vim server')
+	parser.add_argument('--remote-tab', action='store_true',
+			help='Edit <files> with a tab page per file')
+	parser.add_argument('--remote-tab-silent', action='store_true',
+			help='Same, do not complain if there is no server')
+	parser.add_argument('files', type=str, nargs='*',
+			help='edit specified file(s)')
+
+	args, unknown = parser.parse_known_args()
+	def report_unknown():
+		if len(unknown):
+			print('dvim: Unknown arguments: {}'.format(', '.join(
+					unknown)), file=sys.stderr)
+	if args.remote_expr:
+		report_unknown()
+		remote_expr(args.remote_expr)
+	elif args.remote_raw_ex:
+		report_unknown()
+		return remote_raw_ex(args.remote_raw_ex)
+	elif args.remote_tab or args.remote_tab_silent:
+		report_unknown()
+		return remote_tab(args.files, args.remote_tab_silent)
+	else:
+		# We didn't find a remote command; delegate directly to vim
+		return subprocess.call(['vim',] + sys.argv[1:])
+
+if __name__ == '__main__':
+	try:
+		rc = main()
+		if rc == None:
+			rc = 0
+		sys.exit(rc)
+	except DBusError:
+		pass
+
+	# Anything we can't handle we'll just delegate to vim itself
+        args = [ a for a in sys.argv[1:] if not a.startswith('--remote') ]
+	sys.exit(subprocess.call([ 'vim', ] + args))
