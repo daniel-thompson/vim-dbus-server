@@ -28,7 +28,7 @@ class DBusServer(object):
 		'''Run cmd as an ex command'''
 		try:
 			vim.command('redir @a')
-			vim.command(cmd.strip())
+			vim.command('silent ' + cmd.strip())
 			vim.command('redir END')
 			result = str(vim.eval('@a'))
 		except Exception, e:
@@ -44,10 +44,20 @@ class DBusServer(object):
 		return result
 
 bus = pydbus.SessionBus()
-if 'org.vim.server' not in bus.dbus.ListNames():
-	service = bus.publish('org.vim.server', DBusServer())
-	loop = GLib.MainLoop()
-	thread.start_new_thread(loop.run, ())
+
+prefix = 'org.vim.server.'
+tag = vim.eval('g:dbus_servername')
+extra_tag = 1
+
+name = prefix + tag
+dbus_names = bus.dbus.ListNames()
+while name in dbus_names:
+	name = prefix + tag + str(extra_tag)
+	extra_tag += 1
+
+service = bus.publish(name, DBusServer())
+loop = GLib.MainLoop()
+thread.start_new_thread(loop.run, ())
 endpython
 endfunction
 
@@ -57,6 +67,10 @@ service.unpublish()
 loop.quit()
 endpython
 endfunction
+
+if !exists("g:dbus_servername")
+	let g:dbus_servername = "GVIM"
+endif
 
 if !has('python')
 	echo "vim-dbus-server requires python support."

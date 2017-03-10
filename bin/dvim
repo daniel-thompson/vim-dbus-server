@@ -15,27 +15,33 @@ import sys
 class DBusError(BaseException):
 	pass
 
-def get_server(silent=False):
+def normalize_servername(s):
+	return s.upper().replace('-', '_')
+
+def get_server(args, silent=False):
 	bus = pydbus.SessionBus()
-	if 'org.vim.server' not in bus.dbus.ListNames():
+	name = 'org.vim.server.' + normalize_servername(args.servername)
+	if name not in bus.dbus.ListNames():
 		if not silent:
 			print('Cannot find a vim-dbus-server', file=sys.stderr)
 		raise DBusError()
 
-	return bus.get('org.vim.server')
+	return bus.get(name)
 
-def remote_expr(expr):
-	vim = get_server()
-	print(vim.Eval(expr))
+def remote_expr(args):
+	vim = get_server(args)
+	print(vim.Eval(args.remote_expr))
 
-def remote_raw_ex(cmd):
-	vim = get_server()
+def remote_raw_ex(args):
+	vim = get_server(args)
+	cmd = args.remote_raw_ex
 	print('>>> ' + cmd)
 	reply = vim.Command(cmd)
 	print('<<< ' + reply)
 
-def remote_tab(files, silent=False):
-	vim = get_server(silent)
+def remote_tab(args, silent=False):
+	vim = get_server(args, silent)
+	files = args.files
 
 	command = 'tabnew'
 
@@ -52,17 +58,27 @@ def remote_tab(files, silent=False):
 		reply = vim.Command('tabnew ' + f)
 		print(reply.strip())
 
+def serverlist():
+	bus = pydbus.SessionBus()
+	for n in bus.dbus.ListNames():
+		if n.startswith('org.vim.server.'):
+			print(n[15:])
+
 def main():
 	parser = argparse.ArgumentParser(
 			description="DBus based `gvim --remote' workalike")
 	parser.add_argument('--remote-expr',
-			help='Evaluate <expr> in a Vim server and print result')
+			help='Evaluate <expr> in a server and print result')
 	parser.add_argument('--remote-raw-ex',
 			help='Send a raw ex command to the vim server')
 	parser.add_argument('--remote-tab', action='store_true',
 			help='Edit <files> with a tab page per file')
 	parser.add_argument('--remote-tab-silent', action='store_true',
 			help='Same, do not complain if there is no server')
+	parser.add_argument('--serverlist', action='store_true',
+			help='List available DBus server names and exit')
+	parser.add_argument('--servername', default="GVIM",
+			help='Send to/become the DBus server <name>')
 	parser.add_argument('files', type=str, nargs='*',
 			help='edit specified file(s)')
 
@@ -71,28 +87,31 @@ def main():
 		if len(unknown):
 			print('dvim: Unknown arguments: {}'.format(', '.join(
 					unknown)), file=sys.stderr)
-	if args.remote_expr:
-		report_unknown()
-		remote_expr(args.remote_expr)
-	elif args.remote_raw_ex:
-		report_unknown()
-		return remote_raw_ex(args.remote_raw_ex)
-	elif args.remote_tab or args.remote_tab_silent:
-		report_unknown()
-		return remote_tab(args.files, args.remote_tab_silent)
-	else:
-		# We didn't find a remote command; delegate directly to vim
-		return subprocess.call(['vim',] + sys.argv[1:])
-
-if __name__ == '__main__':
 	try:
-		rc = main()
-		if rc == None:
-			rc = 0
-		sys.exit(rc)
+		if args.remote_expr:
+			report_unknown()
+			return remote_expr(args)
+		if args.remote_raw_ex:
+			report_unknown()
+			return remote_raw_ex(args)
+		if args.remote_tab or args.remote_tab_silent:
+			report_unknown()
+			return remote_tab(args, args.remote_tab_silent)
+		if args.serverlist:
+			report_unknown()
+			return serverlist()
 	except DBusError:
 		pass
 
-	# Anything we can't handle we'll just delegate to vim itself
-        args = [ a for a in sys.argv[1:] if not a.startswith('--remote') ]
-	sys.exit(subprocess.call([ 'vim', ] + args))
+	# We didn't find a remote command; delegate directly to vim
+	servername = normalize_servername(args.servername)
+
+	cmd = [ 'vim', '--cmd',
+		'let g:dbus_servername = "{}"'.format(servername) ]
+	return subprocess.call(cmd + unknown + args.files)
+
+if __name__ == '__main__':
+	rc = main()
+	if rc == None:
+		rc = 0
+	sys.exit(rc)
