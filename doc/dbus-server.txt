@@ -1,0 +1,55 @@
+*dbus-server.txt*  Using DBus to implement a Vim server
+
+Author:  Daniel Thompson <daniel@redfelineninja.org.uk>
+License: Same terms as Vim itself (see |license|)
+
+This plugin requires 'python' support.
+
+INTRODUCTION                                    *dbus-server*
+
+dbus-server provides a DBus service that allows vim to be controlled
+by other processes in the same DBus session. It can be used as a
+replacement for the built-in vim server when working without a GUI.
+
+There are lots of reasons why raw vim might be preferred over gvim. The 
+author uses it primarily when working remotely with mosh+tmux.
+
+DVIM WRAPPER                                    *dbus-server-dvim*
+
+Whilst it is possible to send raw commands to the DBus server using
+tools such as dbus-send it is much more convenient to use dvim, a
+wrapper script that supports the same arguments as gvim to manage
+the server.
+
+usage: dvim [-h] [--remote-expr REMOTE_EXPR] [--remote-raw-ex REMOTE_RAW_EX]
+            [--remote-tab] [--remote-tab-silent] [--serverlist]
+            [--servername SERVERNAME]
+            [files [files ...]]
+
+DBus based `gvim --remote' workalike
+
+positional arguments:
+  files                 edit specified file(s)
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --remote-expr REMOTE_EXPR
+                        Evaluate <expr> in a server and print result
+  --remote-raw-ex REMOTE_RAW_EX
+                        Send a raw ex command to the vim server
+  --remote-tab          Edit <files> with a tab page per file
+  --remote-tab-silent   Same, do not complain if there is no server
+  --serverlist          List available DBus server names and exit
+  --servername SERVERNAME
+                        Send to/become the DBus server <name>
+
+ABOUT                                           *dbus-server-about*
+
+Grab the latest version or report a bug on GitHub:
+
+http://github.com/daniel-thompson/vim-dbus-server
+
+Patches are welcome, either via github.com pull requests or using
+`git send-email`.
+
+ vim:tw=78:et:ft=help:norl:
