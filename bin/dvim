@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 #
 # dvim - gvim --remote workalike
@@ -8,9 +8,13 @@ from __future__ import print_function
 
 import argparse
 import os
-import pydbus
 import subprocess
 import sys
+
+try:
+    import pydbus
+except:
+    pass # if there's no pydbus support we can to fallback to regular vim...
 
 class DBusError(BaseException):
 	pass
@@ -19,7 +23,12 @@ def normalize_servername(s):
 	return s.upper().replace('-', '_')
 
 def get_server(args, silent=False):
-	bus = pydbus.SessionBus()
+	try:
+		bus = pydbus.SessionBus()
+	except NameError:
+		if not silent:
+			print('No pydbus support', file=sys.stderr)
+		raise DBusError()
 	name = 'org.vim.server.' + normalize_servername(args.servername)
 	if name not in bus.dbus.ListNames():
 		if not silent:
@@ -59,7 +68,10 @@ def remote_tab(args, silent=False):
 		print(reply.strip())
 
 def serverlist():
-	bus = pydbus.SessionBus()
+	try:
+		bus = pydbus.SessionBus()
+	except NameError:
+		return 1
 	for n in bus.dbus.ListNames():
 		if n.startswith('org.vim.server.'):
 			print(n[15:])
@@ -87,6 +99,7 @@ def main():
 		if len(unknown):
 			print('dvim: Unknown arguments: {}'.format(', '.join(
 					unknown)), file=sys.stderr)
+
 	try:
 		if args.remote_expr:
 			report_unknown()

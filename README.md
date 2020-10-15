@@ -8,6 +8,12 @@ replacement for the built-in vim server when working without a GUI.
 There are lots of reasons why raw vim might be preferred over gvim. The 
 author uses it primarily when working remotely with mosh+tmux.
 
+Installing
+----------
+
+To run vim-dbus-server you must have a vim instance with python3 support
+enabled and the pydbus and pygobject modules installed.
+
 Contributing
 ------------
 

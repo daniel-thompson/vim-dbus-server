@@ -2,10 +2,10 @@
 " Daniel Thompson <daniel@redfelineninja.org.uk>
 
 function! StartDBusServer()
-python << endpython
+python3 << endpython
 import vim
 import pydbus
-import thread
+import threading
 from gi.repository import GLib
 
 class DBusServer(object):
@@ -31,7 +31,7 @@ class DBusServer(object):
 			vim.command('silent ' + cmd.strip())
 			vim.command('redir END')
 			result = str(vim.eval('@a'))
-		except Exception, e:
+		except Exception as e:
 			result = 'FAILED: ' + str(e)
 		return result
 
@@ -39,7 +39,7 @@ class DBusServer(object):
 		'''Evaluate expr as a vim expression'''
 		try:
 			result = vim.eval(expr.strip())
-		except Exception, e:
+		except Exception as e:
 			result = 'FAILED: ' + str(e)
 		return result
 
@@ -56,15 +56,16 @@ while name in dbus_names:
 	extra_tag += 1
 
 service = bus.publish(name, DBusServer())
-loop = GLib.MainLoop()
-thread.start_new_thread(loop.run, ())
+mainloop = GLib.MainLoop()
+dbus_thread = threading.Thread(target=mainloop.run, daemon=True)
+dbus_thread.start()
 endpython
 endfunction
 
 function! StopDBusServer()
-python << endpython
+python3 << endpython
 service.unpublish()
-loop.quit()
+mainloop.quit()
 endpython
 endfunction
 
@@ -72,7 +73,7 @@ if !exists("g:dbus_servername")
 	let g:dbus_servername = "GVIM"
 endif
 
-if !has('python')
+if !has('python3')
 	echo "vim-dbus-server requires python support."
 else
 	if !exists("g:dbus_autostart") || g:dbus_autostart != 0
